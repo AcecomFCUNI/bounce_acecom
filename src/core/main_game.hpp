@@ -2,45 +2,26 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <thread>
+#include <vector>
 
 #include "render/shader_loading.hpp"
 #include "render/2D_figure_renderization.hpp"
 #include "../utilities/render/texture_loading.hpp"
-#include "../utilities/render/buffer_generation.hpp"
-#include "colisions/image_position.hpp"
+#include "colisions/check_colisions.hpp"
 #include "window/main_window.hpp"
 
-const double FIXED_DELTA_TIME = 0.01;
+const double FIXED_DELTA_TIME = 0.0033;
 
 inline ShaderLoader* shaderLoader = ShaderLoader::GetInstance();
-
-const float START_CENTER_POSITION_X = 0.3f;
-const float START_CENTER_POSITION_Y = 0.0f;
 
 const int SCR_WIDTH = 1280;
 const int SCR_HEIGHT = 720;
 
-float center_position_x = 0.1f;
-float center_position_y = 0.0f;
-
-inline float vertices[] = {
-	// positions          // colors           // texture coords
-	-0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f, 0.0f, 0.0f,   // bottom left
-	 0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f, 1.0f, 0.0f,   // bottom right
-	 0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f, 1.0f,   // top right
-	-0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f, 0.0f, 1.0f    // top left 
-};
-
-inline unsigned int indices[]{
-	0, 1, 3,
-	1, 2, 3,
-};
-
-inline unsigned int VAO, VBO, EBO;
-
+inline lemur_object* lemur;
+inline std::vector<object_color> colorObjects;
 
 void frameBufferSizeCallback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
+void processFrame(GLFWwindow* window, double delta);
 
 int main_game();
 void start_configuration();
@@ -78,39 +59,38 @@ inline void start_configuration(){
     	"../assets/shaders/TextureRenderization/TextureShader.vert", 
     	"../assets/shaders/TextureRenderization/TextureShader.frag");
 
-    //generate buffers
-    std::cout<<"generate buffers"<<std::endl;
-    generateBuffers(
-    	&VAO, 
-    	&VBO, 
-    	&EBO, 
-    	vertices, 
-    	sizeof(vertices)/sizeof(float), 
-    	indices, 
-    	sizeof(indices)/sizeof(unsigned int)
-    	);
-	
-	//charge texture
+    shaderLoader->LoadShader(
+    	"../assets/shaders/ColorRenderization/ColorRenderization.vert", 
+    	"../assets/shaders/ColorRenderization/ColorRenderization.frag");
+
+    //charge texture
 	std::cout<<"charging texture"<<std::endl;
     UploadTexture("../assets/textures/lemur.png");
+
+    //GenerateObjects
+	lemur = new lemur_object(true);
+    object_color player1 = object_color(0.f, -0.7f, 0.3f, 0.05f, 1.0f, 10.f);
+    object_color player2 = object_color(0.f, 0.7f, 0.3f, 0.05f, 1.0f, 10.f);
+    colorObjects.push_back(player1);
+    colorObjects.push_back(player2);
+
 }
+
 
 inline void game_loop(){
 	while(!glfwWindowShouldClose(MainWindow::Get()->glfw())){
-		processInput(MainWindow::Get()->glfw());
+		processFrame(MainWindow::Get()->glfw(), FIXED_DELTA_TIME);
 
-		//calc new position
-		CaclNewPosition(&center_position_x, &center_position_y, FIXED_DELTA_TIME);
-		CalcVertices(&center_position_x, &center_position_y, vertices);
-
-		//render image
-		UpdateVertex(&VAO, &VBO, vertices, sizeof(vertices)/sizeof(float));
+		//render ACECOM texture
 		glClear(GL_COLOR_BUFFER_BIT);
 		shaderLoader->GetShader(0).use();
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		lemur->RenderObject();
 
-
+		shaderLoader->GetShader(1).use();
+		for(int i = 0; i < colorObjects.size(); i++){
+			colorObjects.at(i).RenderObject();
+		}
+		
 		glfwSwapBuffers(MainWindow::Get()->glfw());
 		glfwPollEvents();
 
@@ -126,9 +106,18 @@ inline void frameBufferSizeCallback(GLFWwindow* window, int width, int height){
     glViewport(0, 0, width, height);
 }
 
-inline void processInput(GLFWwindow* window){
-    
+inline void processFrame(GLFWwindow* window, double delta){
+	
+	for(int i = 0; i < colorObjects.size(); i++){
+		colorObjects.at(i).ProcessFrame(window, delta);
+	}
+
+	lemur->ProcessFrame(window, delta);
+
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
         glfwSetWindowShouldClose(window, true);
     }
+
+    CheckLemurColisions(colorObjects, lemur);
 }
+

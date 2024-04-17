@@ -22,7 +22,7 @@ static int UploadTexture(const char* filePath){
 	//load and generate the textures
 
 	int width, height, nrChannels;
-
+	stbi_set_flip_vertically_on_load(true); 
 	unsigned char *data = stbi_load(filePath, &width, &height, &nrChannels, 0);
 
 	if(data){

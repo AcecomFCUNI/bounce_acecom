@@ -1,2 +1,4 @@
 build/*
-.cls-cache/*
+.ccls-cache/
+.vscode/
+.cache/
